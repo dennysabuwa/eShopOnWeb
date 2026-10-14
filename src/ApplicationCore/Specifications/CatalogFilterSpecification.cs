@@ -5,9 +5,8 @@ namespace Microsoft.eShopWeb.ApplicationCore.Specifications;
 
 public class CatalogFilterSpecification : Specification<CatalogItem>
 {
-    public CatalogFilterSpecification(int? brandId, int? typeId)
+    public CatalogFilterSpecification(int? brandId, int? typeId, decimal? minPrice = null, decimal? maxPrice = null)
     {
-        Query.Where(i => (!brandId.HasValue || i.CatalogBrandId == brandId) &&
-            (!typeId.HasValue || i.CatalogTypeId == typeId));
+        Query.ApplyCatalogFilter(brandId, typeId, minPrice, maxPrice);
     }
 }

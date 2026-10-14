@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc.Rendering;
+using Microsoft.eShopWeb.ApplicationCore.Constants;
 using Microsoft.eShopWeb.ApplicationCore.Entities;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.ApplicationCore.Specifications;
@@ -32,13 +33,15 @@ public class CatalogViewModelService : ICatalogViewModelService
         _uriComposer = uriComposer;
     }
 
-    public async Task<CatalogIndexViewModel> GetCatalogItems(int pageIndex, int itemsPage, int? brandId, int? typeId)
+    public async Task<CatalogIndexViewModel> GetCatalogItems(int pageIndex, int itemsPage, int? brandId, int? typeId, int? priceBandId)
     {
         _logger.LogInformation("GetCatalogItems called.");
 
-        var filterSpecification = new CatalogFilterSpecification(brandId, typeId);
+        // An unknown band id resolves to null, which means no price filter.
+        var priceBand = CatalogPriceBands.FindById(priceBandId);
+        var filterSpecification = new CatalogFilterSpecification(brandId, typeId, priceBand?.MinPrice, priceBand?.MaxPrice);
         var filterPaginatedSpecification =
-            new CatalogFilterPaginatedSpecification(itemsPage * pageIndex, itemsPage, brandId, typeId);
+            new CatalogFilterPaginatedSpecification(itemsPage * pageIndex, itemsPage, brandId, typeId, priceBand?.MinPrice, priceBand?.MaxPrice);
 
         // the implementation below using ForEach and Count. We need a List.
         var itemsOnPage = await _itemRepository.ListAsync(filterPaginatedSpecification);
@@ -57,6 +60,8 @@ public class CatalogViewModelService : ICatalogViewModelService
             Types = (await GetTypes()).ToList(),
             BrandFilterApplied = brandId ?? 0,
             TypesFilterApplied = typeId ?? 0,
+            PriceBands = GetPriceBands().ToList(),
+            PriceBandFilterApplied = priceBand?.Id ?? 0,
             PaginationInfo = new PaginationInfoViewModel()
             {
                 ActualPage = pageIndex,
@@ -96,6 +101,19 @@ public class CatalogViewModelService : ICatalogViewModelService
         var items = types
             .Select(type => new SelectListItem() { Value = type.Id.ToString(), Text = type.Type })
             .OrderBy(t => t.Text)
+            .ToList();
+
+        var allItem = new SelectListItem() { Value = null, Text = "All", Selected = true };
+        items.Insert(0, allItem);
+
+        return items;
+    }
+
+    public IEnumerable<SelectListItem> GetPriceBands()
+    {
+        // Kept in price order rather than sorted by label.
+        var items = CatalogPriceBands.All
+            .Select(band => new SelectListItem() { Value = band.Id.ToString(), Text = band.Label })
             .ToList();
 
         var allItem = new SelectListItem() { Value = null, Text = "All", Selected = true };
